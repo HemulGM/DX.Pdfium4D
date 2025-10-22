@@ -1,11 +1,18 @@
-object Form48: TForm48
+object MainForm: TMainForm
   Left = 0
   Top = 0
   Caption = 'DX PDF-Viewer 1.0'
-  ClientHeight = 465
-  ClientWidth = 480
+  ClientHeight = 600
+  ClientWidth = 800
   FormFactor.Width = 320
   FormFactor.Height = 480
   FormFactor.Devices = [Desktop]
   DesignerMasterStyle = 0
+  OnCreate = FormCreate
+  object WebBrowser: TWebBrowser
+    Align = Client
+    Size.Width = 800.000000000000000000
+    Size.Height = 600.000000000000000000
+    Size.PlatformDefault = False
+  end
 end
