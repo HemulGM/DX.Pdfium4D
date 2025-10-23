@@ -1,0 +1,3 @@
+[submodule "lib/pdfium-binaries"]
+	path = lib/pdfium-binaries
+	url = https://github.com/bblanchon/pdfium-binaries.git
