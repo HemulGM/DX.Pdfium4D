@@ -24,12 +24,28 @@ object MainForm: TMainForm
       Margins.Top = 2.000000000000000000
       Margins.Right = 5.000000000000000000
       Margins.Bottom = 2.000000000000000000
-      Size.Width = 790.000000000000000000
+      Size.Width = 610.000000000000000000
       Size.Height = 18.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 11.000000000000000000
       Text = 'No document loaded'
       TabOrder = 0
+    end
+    object PageLabel: TLabel
+      Align = Right
+      StyledSettings = [Family, Style, FontColor]
+      Margins.Left = 5.000000000000000000
+      Margins.Top = 2.000000000000000000
+      Margins.Right = 30.000000000000000000
+      Margins.Bottom = 2.000000000000000000
+      Position.X = 625.000000000000000000
+      Position.Y = 2.000000000000000000
+      Size.Width = 145.000000000000000000
+      Size.Height = 18.000000000000000000
+      Size.PlatformDefault = False
+      TextSettings.Font.Size = 11.000000000000000000
+      TextSettings.HorzAlign = Trailing
+      TabOrder = 1
     end
   end
   object DropPanel: TPanel

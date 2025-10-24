@@ -156,6 +156,7 @@ procedure FPDF_CloseDocument(ADocument: FPDF_DOCUMENT); cdecl; external PDFIUM_D
 function FPDF_GetPageCount(ADocument: FPDF_DOCUMENT): Integer; cdecl; external PDFIUM_DLL;
 function FPDF_GetFileVersion(ADocument: FPDF_DOCUMENT; var AFileVersion: Integer): FPDF_BOOL; cdecl; external PDFIUM_DLL;
 function FPDF_GetPageSizeByIndex(ADocument: FPDF_DOCUMENT; APageIndex: Integer; out AWidth: Double; out AHeight: Double): FPDF_BOOL; cdecl; external PDFIUM_DLL;
+function FPDF_GetMetaText(ADocument: FPDF_DOCUMENT; const ATag: FPDF_BYTESTRING; ABuffer: Pointer; ABufLen: Cardinal): Cardinal; cdecl; external PDFIUM_DLL;
 
 // Page functions (fpdfview.h)
 function FPDF_LoadPage(ADocument: FPDF_DOCUMENT; APageIndex: Integer): FPDF_PAGE; cdecl; external PDFIUM_DLL;

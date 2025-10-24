@@ -25,6 +25,7 @@ type
     DropLabel: TLabel;
     StatusBar: TStatusBar;
     StatusLabel: TLabel;
+    PageLabel: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
   private
@@ -33,7 +34,8 @@ type
     procedure HideDropPanel;
     procedure ShowDropPanel;
     procedure CreatePdfViewer;
-    procedure UpdateStatusBar(const AFileName: string; const APdfVersion: string);
+    procedure UpdateStatusBar;
+    procedure OnPdfViewerPageChanged(Sender: TObject);
   protected
     procedure LoadPdfFile(const AFilePath: string);
     procedure ProcessCommandLineParams;
@@ -58,7 +60,7 @@ begin
   CreatePdfViewer;
 
   // Initialize status bar
-  UpdateStatusBar('', '');
+  UpdateStatusBar;
 
   // Show drop panel initially
   ShowDropPanel;
@@ -78,6 +80,7 @@ begin
   FPdfViewer.Parent := Self;
   FPdfViewer.Align := TAlignLayout.Client;
   FPdfViewer.BackgroundColor := TAlphaColors.White;
+  FPdfViewer.OnPageChanged := OnPdfViewerPageChanged;
   FPdfViewer.SendToBack; // Send behind DropPanel
 end;
 
@@ -113,8 +116,6 @@ begin
 end;
 
 procedure TMainForm.LoadPdfFile(const AFilePath: string);
-var
-  LPdfVersion: string;
 begin
   if not TFile.Exists(AFilePath) then
   begin
@@ -128,34 +129,64 @@ begin
 
     FCurrentPdfPath := AFilePath;
 
-    // Get PDF version
-    if FPdfViewer.Document <> nil then
-      LPdfVersion := FPdfViewer.Document.GetFileVersionString
-    else
-      LPdfVersion := 'Unknown';
-
     // Hide drop panel when PDF is loaded
     HideDropPanel;
 
     // Update window title and status bar
     Caption := 'DX PDF-Viewer 1.0 - ' + TPath.GetFileName(AFilePath);
-    UpdateStatusBar(TPath.GetFileName(AFilePath), LPdfVersion);
+    UpdateStatusBar;
+
+    // Set focus to viewer for keyboard navigation
+    FPdfViewer.SetFocus;
   except
     on E: EPdfException do
     begin
       ShowMessage('Error loading PDF: ' + E.Message);
       ShowDropPanel;
-      UpdateStatusBar('', '');
+      UpdateStatusBar;
     end;
   end;
 end;
 
-procedure TMainForm.UpdateStatusBar(const AFileName: string; const APdfVersion: string);
+procedure TMainForm.UpdateStatusBar;
+var
+  LFileName: string;
+  LPdfVersion: string;
+  LPdfAInfo: string;
+  LStatusText: string;
 begin
-  if (AFileName <> '') and (APdfVersion <> '') then
-    StatusLabel.Text := Format('File: %s  |  PDF Version: %s', [AFileName, APdfVersion])
-  else
+  if (FCurrentPdfPath = '') or (FPdfViewer.Document = nil) or not FPdfViewer.Document.IsLoaded then
+  begin
     StatusLabel.Text := 'No document loaded';
+    PageLabel.Text := '';
+    Exit;
+  end;
+
+  // Get file name
+  LFileName := TPath.GetFileName(FCurrentPdfPath);
+
+  // Get PDF version
+  LPdfVersion := FPdfViewer.Document.GetFileVersionString;
+
+  // Get PDF/A information
+  LPdfAInfo := FPdfViewer.Document.GetPdfAInfo;
+
+  // Build status text (left side)
+  LStatusText := Format('File: %s  |  PDF Version: %s', [LFileName, LPdfVersion]);
+
+  // Add PDF/A info if available
+  if LPdfAInfo <> '' then
+    LStatusText := LStatusText + '  |  ' + LPdfAInfo;
+
+  StatusLabel.Text := LStatusText;
+
+  // Page info on the right side
+  PageLabel.Text := Format('Page %d/%d', [FPdfViewer.CurrentPageIndex + 1, FPdfViewer.PageCount]);
+end;
+
+procedure TMainForm.OnPdfViewerPageChanged(Sender: TObject);
+begin
+  UpdateStatusBar;
 end;
 
 procedure TMainForm.DragOver(const Data: TDragObject; const Point: TPointF; var Operation: TDragOperation);

@@ -120,6 +120,16 @@ type
     function GetFileVersionString: string;
 
     /// <summary>
+    /// Gets metadata from the PDF document (Title, Author, Subject, Keywords, Creator, Producer, CreationDate, ModDate)
+    /// </summary>
+    function GetMetadata(const ATag: string): string;
+
+    /// <summary>
+    /// Checks if the document is PDF/A compliant and returns the version (e.g., "PDF/A-1b", "PDF/A-2u")
+    /// </summary>
+    function GetPdfAInfo: string;
+
+    /// <summary>
     /// Number of pages in the document
     /// </summary>
     property PageCount: Integer read FPageCount;
@@ -350,6 +360,89 @@ begin
     Result := Format('%d.%d', [LVersion div 10, LVersion mod 10])
   else
     Result := 'Unknown';
+end;
+
+function TPdfDocument.GetMetadata(const ATag: string): string;
+var
+  LBufLen: Cardinal;
+  LBuffer: array of WideChar;
+  LTagAnsi: AnsiString;
+begin
+  Result := '';
+  if not IsLoaded then
+    Exit;
+
+  LTagAnsi := AnsiString(ATag);
+
+  // Get required buffer size
+  LBufLen := FPDF_GetMetaText(FHandle, FPDF_BYTESTRING(PAnsiChar(LTagAnsi)), nil, 0);
+  if LBufLen <= 2 then // Empty or just null terminator
+    Exit;
+
+  // Allocate buffer and get metadata (UTF-16LE encoded)
+  SetLength(LBuffer, LBufLen div 2);
+  FPDF_GetMetaText(FHandle, FPDF_BYTESTRING(PAnsiChar(LTagAnsi)), @LBuffer[0], LBufLen);
+
+  // Convert to string (remove null terminator)
+  Result := Trim(string(PWideChar(@LBuffer[0])));
+end;
+
+function TPdfDocument.GetPdfAInfo: string;
+var
+  LProducer: string;
+  LCreator: string;
+  LSubject: string;
+begin
+  Result := '';
+  if not IsLoaded then
+    Exit;
+
+  // Check Producer and Creator metadata for PDF/A information
+  LProducer := GetMetadata('Producer');
+  LCreator := GetMetadata('Creator');
+  LSubject := GetMetadata('Subject');
+
+  // Look for PDF/A markers in metadata
+  if Pos('PDF/A', UpperCase(LProducer)) > 0 then
+  begin
+    // Try to extract version (e.g., "PDF/A-1b", "PDF/A-2u", "PDF/A-3")
+    if Pos('PDF/A-1', UpperCase(LProducer)) > 0 then
+      Result := 'PDF/A-1'
+    else if Pos('PDF/A-2', UpperCase(LProducer)) > 0 then
+      Result := 'PDF/A-2'
+    else if Pos('PDF/A-3', UpperCase(LProducer)) > 0 then
+      Result := 'PDF/A-3'
+    else if Pos('PDF/A-4', UpperCase(LProducer)) > 0 then
+      Result := 'PDF/A-4'
+    else
+      Result := 'PDF/A';
+  end
+  else if Pos('PDF/A', UpperCase(LCreator)) > 0 then
+  begin
+    if Pos('PDF/A-1', UpperCase(LCreator)) > 0 then
+      Result := 'PDF/A-1'
+    else if Pos('PDF/A-2', UpperCase(LCreator)) > 0 then
+      Result := 'PDF/A-2'
+    else if Pos('PDF/A-3', UpperCase(LCreator)) > 0 then
+      Result := 'PDF/A-3'
+    else if Pos('PDF/A-4', UpperCase(LCreator)) > 0 then
+      Result := 'PDF/A-4'
+    else
+      Result := 'PDF/A';
+  end
+  else if Pos('PDF/A', UpperCase(LSubject)) > 0 then
+  begin
+    if Pos('PDF/A-1', UpperCase(LSubject)) > 0 then
+      Result := 'PDF/A-1'
+    else if Pos('PDF/A-2', UpperCase(LSubject)) > 0 then
+      Result := 'PDF/A-2'
+    else if Pos('PDF/A-3', UpperCase(LSubject)) > 0 then
+      Result := 'PDF/A-3'
+    else if Pos('PDF/A-4', UpperCase(LSubject)) > 0 then
+      Result := 'PDF/A-4'
+    else
+      Result := 'PDF/A';
+  end;
 end;
 
 { TPdfPage }
