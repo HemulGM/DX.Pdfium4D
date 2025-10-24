@@ -153,7 +153,8 @@ type
 implementation
 
 uses
-  System.Math;
+  System.Math,
+  FMX.Platform;
 
 { TPdfViewer }
 
@@ -182,9 +183,8 @@ begin
     FImage.Parent := Self;
     FImage.Align := TAlignLayout.Client;
     FImage.HitTest := False;
-    FImage.WrapMode := TImageWrapMode.Fit;
-    // Enable interpolation for smooth scaling
-    FImage.DisableInterpolation := False;
+    // Use Center mode to display bitmap at exact size without scaling
+    FImage.WrapMode := TImageWrapMode.Center;
   end;
 end;
 
@@ -254,7 +254,11 @@ procedure TPdfViewer.RenderCurrentPage;
 var
   LRenderWidth: Integer;
   LRenderHeight: Integer;
-  LDPI: Single;
+  LAspectRatio: Double;
+  LControlWidth: Integer;
+  LControlHeight: Integer;
+  LScreenService: IFMXScreenService;
+  LScale: Single;
 begin
   if not IsDocumentLoaded then
     Exit;
@@ -267,29 +271,43 @@ begin
 
   if FCurrentPage <> nil then
   begin
-    // Use 200 DPI for high-quality rendering (PDF points are 72 DPI)
-    // This gives us ~2.8x resolution which matches modern high-DPI displays
-    LDPI := 200.0;
+    // Get screen scale factor for high-DPI displays
+    LScale := 1.0;
+    if TPlatformServices.Current.SupportsPlatformService(IFMXScreenService, LScreenService) then
+      LScale := LScreenService.GetScreenScale;
 
-    // Calculate render size based on PDF page size in points
-    // PDF points: 1 point = 1/72 inch
-    // At 200 DPI: pixels = (points / 72) * 200
-    LRenderWidth := Round((FCurrentPage.Width / 72.0) * LDPI);
-    LRenderHeight := Round((FCurrentPage.Height / 72.0) * LDPI);
+    // Get control size in pixels
+    LControlWidth := Trunc(Width);
+    LControlHeight := Trunc(Height);
 
-    // Ensure minimum size
-    if LRenderWidth < 100 then
-      LRenderWidth := 100;
-    if LRenderHeight < 100 then
-      LRenderHeight := 100;
+    if (LControlWidth <= 0) or (LControlHeight <= 0) then
+      Exit;
 
-    // Set bitmap size to calculated high-resolution
+    // Calculate aspect ratio of PDF page
+    LAspectRatio := FCurrentPage.Width / FCurrentPage.Height;
+
+    // Calculate render size to fit control while maintaining aspect ratio
+    // Multiply by screen scale for high-DPI displays
+    if LControlWidth / LControlHeight > LAspectRatio then
+    begin
+      // Height is limiting factor
+      LRenderHeight := Round(LControlHeight * LScale);
+      LRenderWidth := Round(LRenderHeight * LAspectRatio);
+    end
+    else
+    begin
+      // Width is limiting factor
+      LRenderWidth := Round(LControlWidth * LScale);
+      LRenderHeight := Round(LRenderWidth / LAspectRatio);
+    end;
+
+    // Set bitmap size to exact render size (1:1 pixel mapping with screen scale)
     FImage.Bitmap.SetSize(LRenderWidth, LRenderHeight);
 
-    // Set bitmap scale to 1.0 for consistent rendering
-    FImage.Bitmap.BitmapScale := 1.0;
+    // Set bitmap scale to match screen scale for proper display
+    FImage.Bitmap.BitmapScale := LScale;
 
-    // Render at high resolution
+    // Render at exact size
     FCurrentPage.RenderToBitmap(FImage.Bitmap, FBackgroundColor);
 
     Repaint;

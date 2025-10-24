@@ -11,6 +11,8 @@ object MainForm: TMainForm
   OnDestroy = FormDestroy
   DesignerMasterStyle = 0
   object StatusBar: TStatusBar
+    Position.Y = 578.000000000000000000
+    ShowSizeGrip = True
     Size.Width = 800.000000000000000000
     Size.Height = 22.000000000000000000
     Size.PlatformDefault = False
