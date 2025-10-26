@@ -14,6 +14,7 @@ uses
   FMX.StdCtrls,
   FMX.Controls.Presentation,
   FMX.Objects,
+  FMX.Menus,
   System.IOUtils,
   DX.Pdf.Viewer.FMX,
   DX.Pdf.Document;
@@ -24,9 +25,13 @@ type
     StatusBar: TStatusBar;
     StatusLabel: TLabel;
     PageLabel: TLabel;
+    PopupMenu: TPopupMenu;
+    MenuItemOpenFile: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure DropPanelClick(Sender: TObject);
+    procedure StatusLabelClick(Sender: TObject);
+    procedure MenuItemOpenFileClick(Sender: TObject);
   private
     FPdfViewer: TPdfViewer;
     FCurrentPdfPath: string;
@@ -108,7 +113,7 @@ begin
 
     // Check if the file exists and is a PDF
     if TFile.Exists(LFilePath) and
-      (LowerCase(TPath.GetExtension(LFilePath)) = '.pdf') then
+      (TPath.GetExtension(LFilePath).ToLower = '.pdf') then
     begin
       LoadPdfFile(LFilePath);
     end;
@@ -193,7 +198,7 @@ procedure TMainForm.DragOver(const Data: TDragObject; const Point: TPointF; var 
 begin
   // Check if we have files and if it's a PDF file
   if (Length(Data.Files) > 0) and
-    (LowerCase(TPath.GetExtension(Data.Files[0])) = '.pdf') then
+    (TPath.GetExtension(Data.Files[0]).ToLower = '.pdf') then
   begin
     Operation := TDragOperation.Copy;
   end
@@ -209,7 +214,7 @@ begin
   if Length(Data.Files) > 0 then
   begin
     // Check if it's a PDF file
-    if LowerCase(TPath.GetExtension(Data.Files[0])) = '.pdf' then
+    if TPath.GetExtension(Data.Files[0]).ToLower = '.pdf' then
     begin
       LoadPdfFile(Data.Files[0]);
     end
@@ -238,7 +243,7 @@ begin
 
     if LOpenDialog.Execute then
     begin
-      if LowerCase(TPath.GetExtension(LOpenDialog.FileName)) = '.pdf' then
+      if TPath.GetExtension(LOpenDialog.FileName).ToLower = '.pdf' then
         LoadPdfFile(LOpenDialog.FileName)
       else
         ShowMessage('Please select a PDF file.');
@@ -246,6 +251,16 @@ begin
   finally
     LOpenDialog.Free;
   end;
+end;
+
+procedure TMainForm.StatusLabelClick(Sender: TObject);
+begin
+  ShowOpenDialog;
+end;
+
+procedure TMainForm.MenuItemOpenFileClick(Sender: TObject);
+begin
+  ShowOpenDialog;
 end;
 
 end.

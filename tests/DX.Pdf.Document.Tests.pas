@@ -54,6 +54,15 @@ type
 
     [Test]
     procedure TestPdfVersion;
+
+    [Test]
+    procedure TestGetMetadata;
+
+    [Test]
+    procedure TestGetPdfAInfo;
+
+    [Test]
+    procedure TestStringHelperCompatibility;
   end;
 
 implementation
@@ -282,6 +291,76 @@ begin
   finally
     LDocument.Free;
   end;
+end;
+
+procedure TPdfDocumentTests.TestGetMetadata;
+var
+  LDocument: TPdfDocument;
+  LTitle: string;
+  LAuthor: string;
+begin
+  LDocument := TPdfDocument.Create;
+  try
+    LDocument.LoadFromFile(FTestPdfPath);
+
+    // Test metadata retrieval (may be empty for minimal PDF)
+    LTitle := LDocument.GetMetadata('Title');
+    LAuthor := LDocument.GetMetadata('Author');
+
+    // Should not raise exception, even if empty
+    Assert.Pass('Metadata retrieval works without errors');
+  finally
+    LDocument.Free;
+  end;
+end;
+
+procedure TPdfDocumentTests.TestGetPdfAInfo;
+var
+  LDocument: TPdfDocument;
+  LPdfAInfo: string;
+begin
+  LDocument := TPdfDocument.Create;
+  try
+    LDocument.LoadFromFile(FTestPdfPath);
+
+    // Test PDF/A detection (should be empty for minimal PDF)
+    LPdfAInfo := LDocument.GetPdfAInfo;
+
+    // Should return empty string for non-PDF/A documents
+    Assert.AreEqual('', LPdfAInfo, 'Minimal PDF should not be PDF/A');
+  finally
+    LDocument.Free;
+  end;
+end;
+
+procedure TPdfDocumentTests.TestStringHelperCompatibility;
+var
+  LTestString: string;
+  LUpperString: string;
+  LLowerString: string;
+  LTrimmedString: string;
+begin
+  // Test String Helper methods used in PDF/A detection
+  LTestString := '  PDF/A-1b  ';
+
+  // Test ToUpper (replaces UpperCase)
+  LUpperString := LTestString.ToUpper;
+  Assert.IsTrue(LUpperString.Contains('PDF/A'), 'ToUpper should work correctly');
+
+  // Test ToLower (replaces LowerCase)
+  LLowerString := LTestString.ToLower;
+  Assert.IsTrue(LLowerString.Contains('pdf/a'), 'ToLower should work correctly');
+
+  // Test Trim
+  LTrimmedString := LTestString.Trim;
+  Assert.AreEqual('PDF/A-1b', LTrimmedString, 'Trim should remove whitespace');
+
+  // Test Contains (replaces Pos > 0)
+  Assert.IsTrue(LUpperString.Contains('PDF/A-1'), 'Contains should find substring');
+  Assert.IsFalse(LUpperString.Contains('PDF/A-2'), 'Contains should not find non-existent substring');
+
+  // Test chaining
+  Assert.IsTrue(LTestString.Trim.ToUpper.Contains('PDF/A-1'), 'String helper chaining should work');
 end;
 
 initialization

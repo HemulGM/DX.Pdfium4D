@@ -19,17 +19,22 @@ object MainForm: TMainForm
     TabOrder = 0
     object StatusLabel: TLabel
       Align = Client
+      Cursor = crHandPoint
+      HitTest = True
       StyledSettings = [Family, Style, FontColor]
       Margins.Left = 5.000000000000000000
       Margins.Top = 2.000000000000000000
       Margins.Right = 5.000000000000000000
       Margins.Bottom = 2.000000000000000000
-      Size.Width = 610.000000000000000000
+      Size.Width = 540.000000000000000000
       Size.Height = 18.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 11.000000000000000000
       Text = 'No document loaded'
+      Hint = 'Click to open a PDF file'
+      ShowHint = True
       TabOrder = 0
+      OnClick = StatusLabelClick
     end
     object PageLabel: TLabel
       Align = Right
@@ -38,14 +43,21 @@ object MainForm: TMainForm
       Margins.Top = 2.000000000000000000
       Margins.Right = 30.000000000000000000
       Margins.Bottom = 2.000000000000000000
-      Position.X = 625.000000000000000000
+      Position.X = 630.000000000000000000
       Position.Y = 2.000000000000000000
-      Size.Width = 145.000000000000000000
+      Size.Width = 140.000000000000000000
       Size.Height = 18.000000000000000000
       Size.PlatformDefault = False
       TextSettings.Font.Size = 11.000000000000000000
       TextSettings.HorzAlign = Trailing
       TabOrder = 1
+    end
+  end
+  object PopupMenu: TPopupMenu
+    object MenuItemOpenFile: TMenuItem
+      Text = 'Open File...'
+      ShortCut = 16463
+      OnClick = MenuItemOpenFileClick
     end
   end
   object DropPanel: TPanel
