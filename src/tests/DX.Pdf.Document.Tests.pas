@@ -79,22 +79,19 @@ type
     procedure TestStringHelperCompatibility;
 
     [Test]
-    procedure TestLoadFromStream;
+    procedure TestLoadFromStreamBasic;
 
     [Test]
     procedure TestLoadFromStreamMultiplePages;
 
     [Test]
-    procedure TestLoadFromStreamEx;
+    procedure TestLoadFromStreamWithOwnership;
 
     [Test]
-    procedure TestLoadFromStreamExWithOwnership;
+    procedure TestLoadFromStreamSeekable;
 
     [Test]
-    procedure TestLoadFromStreamExSeekable;
-
-    [Test]
-    procedure TestLoadFromStreamExLargeFile;
+    procedure TestLoadFromStreamNoMemoryDuplication;
 
     [Test]
     procedure TestStreamAdapterCallback;
@@ -398,33 +395,7 @@ begin
   Assert.IsTrue(LTestString.Trim.ToUpper.Contains('PDF/A-1'), 'String helper chaining should work');
 end;
 
-procedure TPdfDocumentTests.TestLoadFromStream;
-var
-  LDocument: TPdfDocument;
-  LStream: TMemoryStream;
-  LVersion: Integer;
-begin
-  LDocument := TPdfDocument.Create;
-  LStream := TMemoryStream.Create;
-  try
-    // Load PDF into stream
-    LStream.LoadFromFile(FTestPdfPath);
-    LStream.Position := 0;
 
-    // Load from stream
-    LDocument.LoadFromStream(LStream);
-
-    Assert.IsTrue(LDocument.IsLoaded, 'Document should be loaded from stream');
-    Assert.AreEqual(1, LDocument.PageCount, 'Page count should be 1');
-
-    // Check PDF version
-    LVersion := LDocument.GetFileVersion;
-    Assert.AreEqual(14, LVersion, 'PDF version should be 1.4 (14)');
-  finally
-    LStream.Free;
-    LDocument.Free;
-  end;
-end;
 
 procedure TPdfDocumentTests.TestLoadFromStreamMultiplePages;
 var
@@ -440,7 +411,7 @@ begin
     LStream.Position := 0;
 
     // Load from stream
-    LDocument.LoadFromStream(LStream);
+    LDocument.LoadFromStream(LStream, False);
 
     // Test that we can access pages after loading from stream
     LPage := LDocument.GetPageByIndex(0);
@@ -459,7 +430,7 @@ begin
   end;
 end;
 
-procedure TPdfDocumentTests.TestLoadFromStreamEx;
+procedure TPdfDocumentTests.TestLoadFromStreamBasic;
 var
   LDocument: TPdfDocument;
   LStream: TMemoryStream;
@@ -473,7 +444,7 @@ begin
     LStream.Position := 0;
 
     // Load from stream using streaming API (stream is NOT owned)
-    LDocument.LoadFromStreamEx(LStream, False);
+    LDocument.LoadFromStream(LStream, False);
 
     Assert.IsTrue(LDocument.IsLoaded, 'Document should be loaded from stream');
     Assert.AreEqual(1, LDocument.PageCount, 'Page count should be 1');
@@ -490,7 +461,7 @@ begin
   end;
 end;
 
-procedure TPdfDocumentTests.TestLoadFromStreamExWithOwnership;
+procedure TPdfDocumentTests.TestLoadFromStreamWithOwnership;
 var
   LDocument: TPdfDocument;
   LStream: TMemoryStream;
@@ -504,7 +475,7 @@ begin
   LStream.Position := 0;
 
   // Load from stream with ownership transfer
-  LDocument.LoadFromStreamEx(LStream, True);  // Document now owns the stream!
+  LDocument.LoadFromStream(LStream, True);  // Document now owns the stream!
 
   try
     Assert.IsTrue(LDocument.IsLoaded, 'Document should be loaded');
@@ -523,7 +494,7 @@ begin
   end;
 end;
 
-procedure TPdfDocumentTests.TestLoadFromStreamExSeekable;
+procedure TPdfDocumentTests.TestLoadFromStreamSeekable;
 var
   LDocument: TPdfDocument;
   LStream: TMemoryStream;
@@ -538,7 +509,7 @@ begin
     LInitialPosition := LStream.Position;
 
     // Load from stream
-    LDocument.LoadFromStreamEx(LStream, False);
+    LDocument.LoadFromStream(LStream, False);
 
     // Verify that PDFium can seek in the stream by accessing pages multiple times
     LPage1 := LDocument.GetPageByIndex(0);
@@ -561,7 +532,7 @@ begin
   end;
 end;
 
-procedure TPdfDocumentTests.TestLoadFromStreamExLargeFile;
+procedure TPdfDocumentTests.TestLoadFromStreamNoMemoryDuplication;
 var
   LDocument: TPdfDocument;
   LStream: TMemoryStream;
@@ -576,7 +547,7 @@ begin
     LStreamSizeBefore := LStream.Size;
 
     // Load using streaming API - should NOT duplicate memory
-    LDocument.LoadFromStreamEx(LStream, False);
+    LDocument.LoadFromStream(LStream, False);
 
     // Verify stream is still the same size (not duplicated)
     Assert.AreEqual(LStreamSizeBefore, LStream.Size, 'Stream size should not change');
@@ -610,7 +581,7 @@ begin
     LStream.LoadFromFile(FTestPdfPath);
 
     // Load using streaming API
-    LDocument.LoadFromStreamEx(LStream, False);
+    LDocument.LoadFromStream(LStream, False);
 
     // Access a page - this should trigger the GetBlock callback
     LPage := LDocument.GetPageByIndex(0);

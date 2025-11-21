@@ -108,7 +108,6 @@ type
     FHandle: FPDF_DOCUMENT;
     FPageCount: Integer;
     FFileName: string;
-    FMemoryBuffer: TBytes; // Buffer must remain valid while document is open!
     FStreamAdapter: TPdfStreamAdapter; // Stream adapter must remain valid while document is open!
   public
     constructor Create;
@@ -120,17 +119,7 @@ type
     procedure LoadFromFile(const AFileName: string; const APassword: string = '');
 
     /// <summary>
-    /// Loads a PDF document from a stream (legacy method - loads entire stream into memory)
-    /// </summary>
-    /// <remarks>
-    /// DEPRECATED: Use LoadFromStreamEx for efficient streaming support.
-    /// This method reads the entire stream content into memory and keeps it for the lifetime
-    /// of the document. For large PDFs, use LoadFromStreamEx or LoadFromFile instead.
-    /// </remarks>
-    procedure LoadFromStream(AStream: TStream; const APassword: string = '');
-
-    /// <summary>
-    /// Loads a PDF document from a stream with true streaming support (recommended)
+    /// Loads a PDF document from a stream with efficient streaming support
     /// </summary>
     /// <remarks>
     /// This method uses PDFium's custom file access API for efficient streaming.
@@ -141,7 +130,7 @@ type
     /// <param name="AStream">Source stream (must support seeking)</param>
     /// <param name="AOwnsStream">If true, the document takes ownership and will free the stream on Close</param>
     /// <param name="APassword">Optional password for encrypted PDFs</param>
-    procedure LoadFromStreamEx(AStream: TStream; AOwnsStream: Boolean = False; const APassword: string = '');
+    procedure LoadFromStream(AStream: TStream; AOwnsStream: Boolean = False; const APassword: string = '');
 
     /// <summary>
     /// Closes the currently loaded document
@@ -342,7 +331,6 @@ begin
   FHandle := nil;
   FPageCount := 0;
   FFileName := '';
-  SetLength(FMemoryBuffer, 0);
   FStreamAdapter := nil;
   TPdfLibrary.Initialize;
 end;
@@ -383,40 +371,7 @@ begin
   FPageCount := FPDF_GetPageCount(FHandle);
 end;
 
-procedure TPdfDocument.LoadFromStream(AStream: TStream; const APassword: string = '');
-var
-  LPasswordAnsi: AnsiString;
-  LError: Cardinal;
-begin
-  Close;
-
-  if AStream = nil then
-    raise EPdfLoadException.Create('Stream is nil');
-
-  // IMPORTANT: Buffer must remain valid while document is open!
-  // Store in FMemoryBuffer field instead of local variable
-  SetLength(FMemoryBuffer, AStream.Size);
-  AStream.Position := 0;
-  AStream.ReadBuffer(FMemoryBuffer[0], AStream.Size);
-
-  if APassword <> '' then
-    LPasswordAnsi := AnsiString(APassword)
-  else
-    LPasswordAnsi := '';
-
-  FHandle := FPDF_LoadMemDocument(@FMemoryBuffer[0], Length(FMemoryBuffer), FPDF_BYTESTRING(PAnsiChar(LPasswordAnsi)));
-
-  if FHandle = nil then
-  begin
-    LError := FPDF_GetLastError;
-    raise EPdfLoadException.CreateFmt('Failed to load PDF from stream: %s', [FPDF_ErrorToString(LError)]);
-  end;
-
-  FFileName := '';
-  FPageCount := FPDF_GetPageCount(FHandle);
-end;
-
-procedure TPdfDocument.LoadFromStreamEx(AStream: TStream; AOwnsStream: Boolean; const APassword: string);
+procedure TPdfDocument.LoadFromStream(AStream: TStream; AOwnsStream: Boolean; const APassword: string);
 var
   LPasswordAnsi: AnsiString;
   LError: Cardinal;
@@ -457,7 +412,6 @@ begin
     FPageCount := 0;
     FFileName := '';
   end;
-  SetLength(FMemoryBuffer, 0); // Free memory buffer
   FreeAndNil(FStreamAdapter);   // Free stream adapter (and optionally the stream)
 end;
 

@@ -77,17 +77,7 @@ type
     procedure LoadFromFile(const AFileName: string; const APassword: string = '');
 
     /// <summary>
-    /// Loads a PDF document from a stream (legacy method - loads entire stream into memory)
-    /// </summary>
-    /// <remarks>
-    /// DEPRECATED: Use LoadFromStreamEx for efficient streaming support.
-    /// This method reads the entire stream content into memory and keeps it for the lifetime
-    /// of the document. For large PDFs, use LoadFromStreamEx or LoadFromFile instead.
-    /// </remarks>
-    procedure LoadFromStream(AStream: TStream; const APassword: string = '');
-
-    /// <summary>
-    /// Loads a PDF document from a stream with true streaming support (recommended)
+    /// Loads a PDF document from a stream with efficient streaming support
     /// </summary>
     /// <remarks>
     /// This method uses PDFium's custom file access API for efficient streaming.
@@ -98,7 +88,7 @@ type
     /// <param name="AStream">Source stream (must support seeking)</param>
     /// <param name="AOwnsStream">If true, the viewer takes ownership and will free the stream on Close</param>
     /// <param name="APassword">Optional password for encrypted PDFs</param>
-    procedure LoadFromStreamEx(AStream: TStream; AOwnsStream: Boolean = False; const APassword: string = '');
+    procedure LoadFromStream(AStream: TStream; AOwnsStream: Boolean = False; const APassword: string = '');
 
     /// <summary>
     /// Closes the currently loaded document
@@ -304,20 +294,10 @@ begin
     FCurrentPageIndex := -1;
 end;
 
-procedure TPdfViewer.LoadFromStream(AStream: TStream; const APassword: string = '');
+procedure TPdfViewer.LoadFromStream(AStream: TStream; AOwnsStream: Boolean; const APassword: string);
 begin
   Close;
-  FDocument.LoadFromStream(AStream, APassword);
-  if FDocument.PageCount > 0 then
-    SetCurrentPageIndex(0)
-  else
-    FCurrentPageIndex := -1;
-end;
-
-procedure TPdfViewer.LoadFromStreamEx(AStream: TStream; AOwnsStream: Boolean; const APassword: string);
-begin
-  Close;
-  FDocument.LoadFromStreamEx(AStream, AOwnsStream, APassword);
+  FDocument.LoadFromStream(AStream, AOwnsStream, APassword);
   if FDocument.PageCount > 0 then
     SetCurrentPageIndex(0)
   else
