@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>Delphi Cross-Platform Wrapper für Google's PDFium</strong>
+  <strong>Delphi Cross-Platform Wrapper for Google's PDFium</strong>
 </p>
 
 <p align="center">
