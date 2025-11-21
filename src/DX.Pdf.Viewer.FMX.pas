@@ -77,6 +77,16 @@ type
     procedure LoadFromFile(const AFileName: string; const APassword: string = '');
 
     /// <summary>
+    /// Loads a PDF document from a stream
+    /// </summary>
+    /// <remarks>
+    /// The entire stream content is read into memory and kept for the lifetime
+    /// of the document, as PDFium requires the buffer to remain valid.
+    /// For large PDFs, consider using LoadFromFile instead.
+    /// </remarks>
+    procedure LoadFromStream(AStream: TStream; const APassword: string = '');
+
+    /// <summary>
     /// Closes the currently loaded document
     /// </summary>
     procedure Close;
@@ -274,6 +284,16 @@ procedure TPdfViewer.LoadFromFile(const AFileName: string; const APassword: stri
 begin
   Close;
   FDocument.LoadFromFile(AFileName, APassword);
+  if FDocument.PageCount > 0 then
+    SetCurrentPageIndex(0)
+  else
+    FCurrentPageIndex := -1;
+end;
+
+procedure TPdfViewer.LoadFromStream(AStream: TStream; const APassword: string = '');
+begin
+  Close;
+  FDocument.LoadFromStream(AStream, APassword);
   if FDocument.PageCount > 0 then
     SetCurrentPageIndex(0)
   else

@@ -77,6 +77,12 @@ type
 
     [Test]
     procedure TestStringHelperCompatibility;
+
+    [Test]
+    procedure TestLoadFromStream;
+
+    [Test]
+    procedure TestLoadFromStreamMultiplePages;
   end;
 
 implementation
@@ -375,6 +381,67 @@ begin
 
   // Test chaining
   Assert.IsTrue(LTestString.Trim.ToUpper.Contains('PDF/A-1'), 'String helper chaining should work');
+end;
+
+procedure TPdfDocumentTests.TestLoadFromStream;
+var
+  LDocument: TPdfDocument;
+  LStream: TMemoryStream;
+  LVersion: Integer;
+begin
+  LDocument := TPdfDocument.Create;
+  LStream := TMemoryStream.Create;
+  try
+    // Load PDF into stream
+    LStream.LoadFromFile(FTestPdfPath);
+    LStream.Position := 0;
+
+    // Load from stream
+    LDocument.LoadFromStream(LStream);
+
+    Assert.IsTrue(LDocument.IsLoaded, 'Document should be loaded from stream');
+    Assert.AreEqual(1, LDocument.PageCount, 'Page count should be 1');
+
+    // Check PDF version
+    LVersion := LDocument.GetFileVersion;
+    Assert.AreEqual(14, LVersion, 'PDF version should be 1.4 (14)');
+  finally
+    LStream.Free;
+    LDocument.Free;
+  end;
+end;
+
+procedure TPdfDocumentTests.TestLoadFromStreamMultiplePages;
+var
+  LDocument: TPdfDocument;
+  LStream: TMemoryStream;
+  LPage: TPdfPage;
+begin
+  LDocument := TPdfDocument.Create;
+  LStream := TMemoryStream.Create;
+  try
+    // Load PDF into stream
+    LStream.LoadFromFile(FTestPdfPath);
+    LStream.Position := 0;
+
+    // Load from stream
+    LDocument.LoadFromStream(LStream);
+
+    // Test that we can access pages after loading from stream
+    LPage := LDocument.GetPageByIndex(0);
+    try
+      Assert.IsNotNull(LPage, 'Page should not be nil');
+
+      // Test page dimensions
+      Assert.IsTrue(LPage.Width > 0, 'Page width should be greater than 0');
+      Assert.IsTrue(LPage.Height > 0, 'Page height should be greater than 0');
+    finally
+      LPage.Free;
+    end;
+  finally
+    LStream.Free;
+    LDocument.Free;
+  end;
 end;
 
 initialization

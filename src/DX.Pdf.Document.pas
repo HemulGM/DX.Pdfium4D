@@ -88,6 +88,7 @@ type
     FHandle: FPDF_DOCUMENT;
     FPageCount: Integer;
     FFileName: string;
+    FMemoryBuffer: TBytes; // Buffer must remain valid while document is open!
   public
     constructor Create;
     destructor Destroy; override;
@@ -100,6 +101,11 @@ type
     /// <summary>
     /// Loads a PDF document from a stream
     /// </summary>
+    /// <remarks>
+    /// The entire stream content is read into memory and kept for the lifetime
+    /// of the document, as PDFium requires the buffer to remain valid.
+    /// For large PDFs, consider using LoadFromFile instead.
+    /// </remarks>
     procedure LoadFromStream(AStream: TStream; const APassword: string = '');
 
     /// <summary>
@@ -249,6 +255,7 @@ begin
   FHandle := nil;
   FPageCount := 0;
   FFileName := '';
+  SetLength(FMemoryBuffer, 0);
   TPdfLibrary.Initialize;
 end;
 
@@ -291,7 +298,6 @@ end;
 procedure TPdfDocument.LoadFromStream(AStream: TStream; const APassword: string = '');
 var
   LPasswordAnsi: AnsiString;
-  LBuffer: TBytes;
   LError: Cardinal;
 begin
   Close;
@@ -299,16 +305,18 @@ begin
   if AStream = nil then
     raise EPdfLoadException.Create('Stream is nil');
 
-  SetLength(LBuffer, AStream.Size);
+  // IMPORTANT: Buffer must remain valid while document is open!
+  // Store in FMemoryBuffer field instead of local variable
+  SetLength(FMemoryBuffer, AStream.Size);
   AStream.Position := 0;
-  AStream.ReadBuffer(LBuffer, AStream.Size);
+  AStream.ReadBuffer(FMemoryBuffer[0], AStream.Size);
 
   if APassword <> '' then
     LPasswordAnsi := AnsiString(APassword)
   else
     LPasswordAnsi := '';
 
-  FHandle := FPDF_LoadMemDocument(@LBuffer[0], Length(LBuffer), FPDF_BYTESTRING(PAnsiChar(LPasswordAnsi)));
+  FHandle := FPDF_LoadMemDocument(@FMemoryBuffer[0], Length(FMemoryBuffer), FPDF_BYTESTRING(PAnsiChar(LPasswordAnsi)));
 
   if FHandle = nil then
   begin
@@ -329,6 +337,7 @@ begin
     FPageCount := 0;
     FFileName := '';
   end;
+  SetLength(FMemoryBuffer, 0); // Free memory buffer
 end;
 
 function TPdfDocument.IsLoaded: Boolean;
