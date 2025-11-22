@@ -31,7 +31,8 @@ uses
   FMX.Forms,
   FMX.Layouts,
   DX.Pdf.API,
-  DX.Pdf.Document;
+  DX.Pdf.Document,
+  DX.Pdf.Viewer.Core;
 
 type
   /// <summary>
@@ -39,29 +40,27 @@ type
   /// </summary>
   TPdfViewer = class(TControl)
   private
-    FDocument: TPdfDocument;
-    FCurrentPage: TPdfPage;
-    FCurrentPageIndex: Integer;
+    FCore: TPdfViewerCore;
     FImage: TImage;
     FLoadingPanel: TPanel;
     FLoadingLabel: TLabel;
     FLoadingArc: TArc;
-    FBackgroundColor: TAlphaColor;
-    FShowLoadingIndicator: Boolean;
-    FOnPageChanged: TNotifyEvent;
-    FIsRendering: Boolean;
     FRenderTask: ITask;
+    function GetCurrentPageIndex: Integer;
     procedure SetCurrentPageIndex(const AValue: Integer);
+    function GetBackgroundColor: TAlphaColor;
     procedure SetBackgroundColor(const AValue: TAlphaColor);
+    function GetShowLoadingIndicator: Boolean;
     procedure SetShowLoadingIndicator(const AValue: Boolean);
     function GetPageCount: Integer;
-    procedure RenderCurrentPage;
+    function GetDocument: TPdfDocument;
+    function GetOnPageChanged: TNotifyEvent;
+    procedure SetOnPageChanged(const AValue: TNotifyEvent);
     procedure RenderPageInBackground;
     procedure OnRenderComplete(ABitmap: TBitmap);
     procedure CreateImage;
     procedure CreateLoadingIndicator;
-    procedure DoShowLoadingIndicator;
-    procedure DoHideLoadingIndicator;
+    procedure DoShowLoadingIndicatorInternal(AShow: Boolean);
   protected
     procedure Resize; override;
     procedure Paint; override;
@@ -121,34 +120,34 @@ type
     function IsDocumentLoaded: Boolean;
 
     /// <summary>
+    /// The PDF document object
+    /// </summary>
+    property Document: TPdfDocument read GetDocument;
+  published
+    /// <summary>
     /// Current page index (0-based)
     /// </summary>
-    property CurrentPageIndex: Integer read FCurrentPageIndex write SetCurrentPageIndex;
+    property CurrentPageIndex: Integer read GetCurrentPageIndex write SetCurrentPageIndex default -1;
 
     /// <summary>
     /// Number of pages in the document
     /// </summary>
-    property PageCount: Integer read GetPageCount;
+    property PageCount: Integer read GetPageCount stored False;
 
-    /// <summary>
-    /// The PDF document object
-    /// </summary>
-    property Document: TPdfDocument read FDocument;
-  published
     /// <summary>
     /// Background color for the viewer
     /// </summary>
-    property BackgroundColor: TAlphaColor read FBackgroundColor write SetBackgroundColor default TAlphaColors.White;
+    property BackgroundColor: TAlphaColor read GetBackgroundColor write SetBackgroundColor default TAlphaColors.White;
 
     /// <summary>
     /// Show loading indicator overlay while rendering pages
     /// </summary>
-    property ShowLoadingIndicator: Boolean read FShowLoadingIndicator write SetShowLoadingIndicator default True;
+    property ShowLoadingIndicator: Boolean read GetShowLoadingIndicator write SetShowLoadingIndicator default True;
 
     /// <summary>
     /// Event fired when the current page changes
     /// </summary>
-    property OnPageChanged: TNotifyEvent read FOnPageChanged write FOnPageChanged;
+    property OnPageChanged: TNotifyEvent read GetOnPageChanged write SetOnPageChanged;
 
     // Inherited published properties
     property Align;
@@ -201,17 +200,76 @@ uses
   System.Math,
   FMX.Platform;
 
+type
+  /// <summary>
+  /// FMX-specific implementation of TPdfViewerCore
+  /// </summary>
+  TPdfViewerCoreFMX = class(TPdfViewerCore)
+  private
+    FViewer: TPdfViewer;
+  protected
+    procedure DoRenderCurrentPage; override;
+    procedure DoShowLoadingIndicator(AShow: Boolean); override;
+  public
+    constructor Create(AViewer: TPdfViewer); reintroduce;
+
+    // Public accessors for protected members (for TPdfViewer)
+    function GetCurrentPage: TPdfPage;
+    procedure SetCurrentPage(const AValue: TPdfPage);
+    function GetIsRendering: Boolean;
+    procedure SetIsRendering(const AValue: Boolean);
+    procedure CallRenderCurrentPage;
+  end;
+
+{ TPdfViewerCoreFMX }
+
+constructor TPdfViewerCoreFMX.Create(AViewer: TPdfViewer);
+begin
+  inherited Create(AViewer);
+  FViewer := AViewer;
+end;
+
+procedure TPdfViewerCoreFMX.DoRenderCurrentPage;
+begin
+  FViewer.RenderPageInBackground;
+end;
+
+procedure TPdfViewerCoreFMX.DoShowLoadingIndicator(AShow: Boolean);
+begin
+  FViewer.DoShowLoadingIndicatorInternal(AShow);
+end;
+
+function TPdfViewerCoreFMX.GetCurrentPage: TPdfPage;
+begin
+  Result := CurrentPage;
+end;
+
+procedure TPdfViewerCoreFMX.SetCurrentPage(const AValue: TPdfPage);
+begin
+  CurrentPage := AValue;
+end;
+
+function TPdfViewerCoreFMX.GetIsRendering: Boolean;
+begin
+  Result := IsRendering;
+end;
+
+procedure TPdfViewerCoreFMX.SetIsRendering(const AValue: Boolean);
+begin
+  IsRendering := AValue;
+end;
+
+procedure TPdfViewerCoreFMX.CallRenderCurrentPage;
+begin
+  RenderCurrentPage;
+end;
+
 { TPdfViewer }
 
 constructor TPdfViewer.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FDocument := TPdfDocument.Create;
-  FCurrentPage := nil;
-  FCurrentPageIndex := -1;
-  FBackgroundColor := TAlphaColors.White;
-  FShowLoadingIndicator := True; // Default: enabled
-  FIsRendering := False;
+  FCore := TPdfViewerCoreFMX.Create(Self);
 
   // Enable keyboard and mouse input
   CanFocus := True;
@@ -226,9 +284,58 @@ begin
   FreeAndNil(FLoadingArc);
   FreeAndNil(FLoadingLabel);
   FreeAndNil(FLoadingPanel);
-  Close;
-  FreeAndNil(FDocument);
+  FreeAndNil(FCore);
   inherited;
+end;
+
+function TPdfViewer.GetCurrentPageIndex: Integer;
+begin
+  Result := FCore.CurrentPageIndex;
+end;
+
+procedure TPdfViewer.SetCurrentPageIndex(const AValue: Integer);
+begin
+  FCore.CurrentPageIndex := AValue;
+end;
+
+function TPdfViewer.GetBackgroundColor: TAlphaColor;
+begin
+  Result := FCore.BackgroundColor;
+end;
+
+procedure TPdfViewer.SetBackgroundColor(const AValue: TAlphaColor);
+begin
+  FCore.BackgroundColor := AValue;
+end;
+
+function TPdfViewer.GetShowLoadingIndicator: Boolean;
+begin
+  Result := FCore.ShowLoadingIndicator;
+end;
+
+procedure TPdfViewer.SetShowLoadingIndicator(const AValue: Boolean);
+begin
+  FCore.ShowLoadingIndicator := AValue;
+end;
+
+function TPdfViewer.GetPageCount: Integer;
+begin
+  Result := FCore.PageCount;
+end;
+
+function TPdfViewer.GetDocument: TPdfDocument;
+begin
+  Result := FCore.Document;
+end;
+
+function TPdfViewer.GetOnPageChanged: TNotifyEvent;
+begin
+  Result := FCore.OnPageChanged;
+end;
+
+procedure TPdfViewer.SetOnPageChanged(const AValue: TNotifyEvent);
+begin
+  FCore.OnPageChanged := AValue;
 end;
 
 procedure TPdfViewer.CreateImage;
@@ -284,108 +391,27 @@ begin
   FLoadingLabel.HitTest := False;
 end;
 
-procedure TPdfViewer.LoadFromFile(const AFileName: string; const APassword: string = '');
+procedure TPdfViewer.LoadFromFile(const AFileName: string; const APassword: string);
 begin
-  Close;
-  FDocument.LoadFromFile(AFileName, APassword);
-  if FDocument.PageCount > 0 then
-    SetCurrentPageIndex(0)
-  else
-    FCurrentPageIndex := -1;
+  FCore.LoadFromFile(AFileName, APassword);
 end;
 
 procedure TPdfViewer.LoadFromStream(AStream: TStream; AOwnsStream: Boolean; const APassword: string);
 begin
-  Close;
-  FDocument.LoadFromStream(AStream, AOwnsStream, APassword);
-  if FDocument.PageCount > 0 then
-    SetCurrentPageIndex(0)
-  else
-    FCurrentPageIndex := -1;
+  FCore.LoadFromStream(AStream, AOwnsStream, APassword);
 end;
 
 procedure TPdfViewer.Close;
 begin
-  FreeAndNil(FCurrentPage);
-  FCurrentPageIndex := -1;
-  FDocument.Close;
+  FCore.Close;
   if FImage <> nil then
-    FImage.Bitmap.Clear(FBackgroundColor);
+    FImage.Bitmap.Clear(FCore.BackgroundColor);
   Repaint;
 end;
 
 function TPdfViewer.IsDocumentLoaded: Boolean;
 begin
-  Result := FDocument.IsLoaded;
-end;
-
-function TPdfViewer.GetPageCount: Integer;
-begin
-  if IsDocumentLoaded then
-    Result := FDocument.PageCount
-  else
-    Result := 0;
-end;
-
-procedure TPdfViewer.SetCurrentPageIndex(const AValue: Integer);
-begin
-  if not IsDocumentLoaded then
-    Exit;
-
-  if (AValue < 0) or (AValue >= FDocument.PageCount) then
-    Exit;
-
-  if FCurrentPageIndex <> AValue then
-  begin
-    FCurrentPageIndex := AValue;
-    RenderCurrentPage;
-    if Assigned(FOnPageChanged) then
-      FOnPageChanged(Self);
-  end;
-end;
-
-procedure TPdfViewer.SetBackgroundColor(const AValue: TAlphaColor);
-begin
-  if FBackgroundColor <> AValue then
-  begin
-    FBackgroundColor := AValue;
-    if IsDocumentLoaded then
-      RenderCurrentPage
-    else
-      Repaint;
-  end;
-end;
-
-procedure TPdfViewer.SetShowLoadingIndicator(const AValue: Boolean);
-begin
-  if FShowLoadingIndicator <> AValue then
-  begin
-    FShowLoadingIndicator := AValue;
-
-    // If disabling while currently showing, hide it
-    if not AValue and (FLoadingPanel <> nil) and FLoadingPanel.Visible then
-      DoHideLoadingIndicator;
-  end;
-end;
-
-procedure TPdfViewer.RenderCurrentPage;
-begin
-  if not IsDocumentLoaded then
-    Exit;
-
-  if (FCurrentPageIndex < 0) or (FCurrentPageIndex >= FDocument.PageCount) then
-    Exit;
-
-  if FIsRendering then
-    Exit;
-
-  FIsRendering := True;
-
-  // Show loading indicator immediately
-  DoShowLoadingIndicator;
-
-  // Start background rendering
-  RenderPageInBackground;
+  Result := FCore.IsDocumentLoaded;
 end;
 
 procedure TPdfViewer.RenderPageInBackground;
@@ -399,10 +425,14 @@ var
   LScale: Single;
   LPageIndex: Integer;
   LBackgroundColor: TAlphaColor;
+  LCurrentPage: TPdfPage;
+  LCoreFMX: TPdfViewerCoreFMX;
 begin
+  LCoreFMX := TPdfViewerCoreFMX(FCore);
+
   // Capture values in main thread
-  LPageIndex := FCurrentPageIndex;
-  LBackgroundColor := FBackgroundColor;
+  LPageIndex := FCore.CurrentPageIndex;
+  LBackgroundColor := FCore.BackgroundColor;
 
   // Get screen scale factor for high-DPI displays
   LScale := 1.0;
@@ -415,23 +445,23 @@ begin
 
   if (LControlWidth <= 0) or (LControlHeight <= 0) then
   begin
-    FIsRendering := False;
+    LCoreFMX.SetIsRendering(False);
     Exit;
   end;
 
   // Load page in main thread (PDFium is not thread-safe for loading)
-  FreeAndNil(FCurrentPage);
-  FCurrentPage := FDocument.GetPageByIndex(LPageIndex);
+  LCoreFMX.SetCurrentPage(FCore.Document.GetPageByIndex(LPageIndex));
+  LCurrentPage := LCoreFMX.GetCurrentPage;
 
-  if FCurrentPage = nil then
+  if LCurrentPage = nil then
   begin
-    FIsRendering := False;
-    DoHideLoadingIndicator;
+    LCoreFMX.SetIsRendering(False);
+    DoShowLoadingIndicatorInternal(False);
     Exit;
   end;
 
   // Calculate aspect ratio of PDF page
-  LAspectRatio := FCurrentPage.Width / FCurrentPage.Height;
+  LAspectRatio := LCurrentPage.Width / LCurrentPage.Height;
 
   // Calculate render size to fit control while maintaining aspect ratio
   if LControlWidth / LControlHeight > LAspectRatio then
@@ -459,21 +489,21 @@ begin
         LTempBitmap.BitmapScale := LScale;
 
         // Render at exact size (this is the slow part)
-        FCurrentPage.RenderToBitmap(LTempBitmap, LBackgroundColor);
+        LCurrentPage.RenderToBitmap(LTempBitmap, LBackgroundColor);
 
         // Switch back to main thread to update UI
-        TThread.Synchronize(nil,
+        TThread.Queue(TThread.Current,
           procedure
           begin
             OnRenderComplete(LTempBitmap);
           end);
       except
         LTempBitmap.Free;
-        TThread.Synchronize(nil,
+        TThread.Queue(TThread.Current,
           procedure
           begin
-            FIsRendering := False;
-            DoHideLoadingIndicator;
+            LCoreFMX.SetIsRendering(False);
+            DoShowLoadingIndicatorInternal(False);
           end);
       end;
     end);
@@ -486,43 +516,39 @@ begin
     FImage.Bitmap.Assign(ABitmap);
 
     // Hide loading indicator and show rendered page
-    DoHideLoadingIndicator;
+    DoShowLoadingIndicatorInternal(False);
     Repaint;
   finally
     ABitmap.Free;
-    FIsRendering := False;
+    TPdfViewerCoreFMX(FCore).SetIsRendering(False);
   end;
 end;
 
 procedure TPdfViewer.NextPage;
 begin
-  if IsDocumentLoaded and (FCurrentPageIndex < FDocument.PageCount - 1) then
-    SetCurrentPageIndex(FCurrentPageIndex + 1);
+  FCore.NextPage;
 end;
 
 procedure TPdfViewer.PreviousPage;
 begin
-  if IsDocumentLoaded and (FCurrentPageIndex > 0) then
-    SetCurrentPageIndex(FCurrentPageIndex - 1);
+  FCore.PreviousPage;
 end;
 
 procedure TPdfViewer.FirstPage;
 begin
-  if IsDocumentLoaded then
-    SetCurrentPageIndex(0);
+  FCore.FirstPage;
 end;
 
 procedure TPdfViewer.LastPage;
 begin
-  if IsDocumentLoaded and (FDocument.PageCount > 0) then
-    SetCurrentPageIndex(FDocument.PageCount - 1);
+  FCore.LastPage;
 end;
 
 procedure TPdfViewer.Resize;
 begin
   inherited;
-  if IsDocumentLoaded and (FCurrentPageIndex >= 0) then
-    RenderCurrentPage;
+  if IsDocumentLoaded and (FCore.CurrentPageIndex >= 0) then
+    TPdfViewerCoreFMX(FCore).CallRenderCurrentPage;
 end;
 
 procedure TPdfViewer.Paint;
@@ -530,7 +556,7 @@ begin
   inherited;
   if not IsDocumentLoaded then
   begin
-    Canvas.Fill.Color := FBackgroundColor;
+    Canvas.Fill.Color := FCore.BackgroundColor;
     Canvas.FillRect(LocalRect, 0, 0, [], 1.0);
   end;
 end;
@@ -590,22 +616,20 @@ begin
   Handled := True;
 end;
 
-procedure TPdfViewer.DoShowLoadingIndicator;
-begin
-  // Only show if enabled
-  if FShowLoadingIndicator and (FLoadingPanel <> nil) then
-  begin
-    FLoadingPanel.Visible := True;
-    FLoadingPanel.BringToFront;
-    Application.ProcessMessages; // Force UI update
-  end;
-end;
-
-procedure TPdfViewer.DoHideLoadingIndicator;
+procedure TPdfViewer.DoShowLoadingIndicatorInternal(AShow: Boolean);
 begin
   if FLoadingPanel <> nil then
   begin
-    FLoadingPanel.Visible := False;
+    if AShow and FCore.ShowLoadingIndicator then
+    begin
+      FLoadingPanel.Visible := True;
+      FLoadingPanel.BringToFront;
+      Application.ProcessMessages; // Force UI update
+    end
+    else
+    begin
+      FLoadingPanel.Visible := False;
+    end;
   end;
 end;
 
